@@ -4,50 +4,77 @@
 <meta charset="UTF-8">
 <title>Discord Word Log</title>
 <style>
-body { font-family:sans-serif; max-width:900px; margin:auto; padding:20px; }
-h1 { border-bottom:2px solid #666; }
-pre { background:#f7f7f8; padding:12px; border-radius:6px; }
-.section { margin:12px 0; }
-.section h3 { cursor:pointer; }
-.item { display:flex; justify-content:space-between; padding:2px 0; }
-.raw { font-weight:600; }
-.date { color:#666; margin-left:12px; }
-#search { margin:12px 0; padding:6px; width:100%; font-size:1em; }
+    body {
+        font-family: "ヒラギノ角ゴ Pro", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, sans-serif;
+        background-color: #fff8f0;
+        color: #333;
+        padding: 40px;
+    }
+
+    h1 {
+        color: #ff69b4;
+        text-align: center;
+        font-size: 3em;
+        margin-bottom: 30px;
+        text-shadow: 1px 1px 2px #ffcccc;
+    }
+
+    pre {
+        font-size: 1.5em;
+        background-color: #fff0f5;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 2px 2px 8px #f0c0d0;
+        white-space: pre-wrap;
+        line-height: 1.8em;
+    }
+
+    /* アルファベット・ひらがな・カタカナで色分け */
+    .alpha { color: #0077cc; font-weight: bold; }
+    .hiragana { color: #ff6600; }
+    .katakana { color: #cc00cc; }
+
 </style>
 </head>
 <body>
-<h1>📘 Discord Word Log</h1>
-<input id="search" placeholder="検索..." />
 
-<div id="content">
-<pre id="txt-content">Loading...</pre>
-</div>
+<h1>📝 Discord Word Log</h1>
+
+<pre id="log"></pre>
 
 <script>
-const searchBox = document.getElementById("search");
-const txtContent = document.getElementById("txt-content");
+async function loadLog() {
+    try {
+        // GitHub Pages に push された output.txt の URL
+        const response = await fetch('output.txt');
+        const text = await response.text();
 
-async function fetchTXT(){
-    const res = await fetch("output.txt");
-    const txt = await res.text();
-    displayTXT(txt);
+        // 色分け処理
+        const lines = text.split('\n').map(line => {
+            if (line.match(/[A-Za-z]/)) {
+                return line.replace(/(.+)/, '<span class="alpha">$1</span>');
+            } else if (line.match(/[\u3040-\u309F]/)) {
+                return line.replace(/(.+)/, '<span class="hiragana">$1</span>');
+            } else if (line.match(/[\u30A0-\u30FF]/)) {
+                return line.replace(/(.+)/, '<span class="katakana">$1</span>');
+            } else {
+                return line;
+            }
+        });
+
+        document.getElementById('log').innerHTML = lines.join('\n');
+    } catch (e) {
+        document.getElementById('log').innerHTML = 'ログの読み込みに失敗しました';
+        console.error(e);
+    }
 }
 
-function displayTXT(txt){
-    const lines = txt.split("\n");
-    txtContent.innerHTML = "";
-    let filter = searchBox.value.trim().toLowerCase();
-    lines.forEach(l=>{
-        if(!filter || l.toLowerCase().includes(filter)){
-            txtContent.innerHTML += l + "\n";
-        }
-    });
-}
+// ページ読み込み時に実行
+loadLog();
 
-searchBox.addEventListener("input", fetchTXT);
-setInterval(fetchTXT, 5000);
-
-fetchTXT();
+// 1分ごとに自動更新
+setInterval(loadLog, 60000);
 </script>
+
 </body>
 </html>
