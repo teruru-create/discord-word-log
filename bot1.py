@@ -108,7 +108,7 @@ async def fetch_and_save():
     try:
         after_param = discord.Object(last_message_id) if last_message_id else None
 
-        async for msg in channel.history(limit=100, oldest_first=True, after=after_param):
+        async for msg in channel.history(limit=None, oldest_first=True, after=after_param):
             key = msg.content.strip()
             if key:
                 normalized = normalize(key)
