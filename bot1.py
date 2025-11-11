@@ -6,36 +6,43 @@ import subprocess
 import jaconv
 import re
 
-# ===== 環境変数からトークン取得 =====
+# トークン取得（環境変数から）
 TOKEN = os.environ.get("DISCORD_TOKEN")
+
 if not TOKEN:
     print("ERROR: DISCORD_TOKEN 環境変数が設定されていません")
     exit(1)
 
 TOKEN = TOKEN.strip()
+if (TOKEN.startswith("'") and TOKEN.endswith("'")) or (TOKEN.startswith('"') and TOKEN.endswith('"')):
+    TOKEN = TOKEN[1:-1]
 if TOKEN.startswith("Bot "):
     TOKEN = TOKEN.split(" ", 1)[1]
 
-# ===== ローカル GitHub リポジトリ情報 =====
+def _safe_token_info(t):
+    try:
+        return f"length={len(t)}, start={t[:4]}, end={t[-4:]}"
+    except Exception:
+        return "(could not read token)"
+
+print(f"DISCORD_TOKEN info: {_safe_token_info(TOKEN)}")
+
 REPO_PATH = r"C:\Projects\discord-word-log"
-CHANNEL_ID = 1123677033659109416  # ここにチャンネルID or スレッドID
+CHANNEL_ID = 1123677033659109416
 OUTPUT_FILE = os.path.join(REPO_PATH, "output.txt")
 
-# ===== Discord Bot 設定 =====
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ===== 正規表現とデータ保存 =====
 ALPHA_RE = re.compile(r"[A-Za-z]")
 HIRAGANA_RE = re.compile(r"[\u3040-\u309F]")
 KATAKANA_RE = re.compile(r"[\u30A0-\u30FF]")
 KANJI_RE = re.compile(r"[\u4E00-\u9FFF]")
 
-data = {}  # key: normalized, value: {"raw": text, "date": "YYYY/MM/DD"}
+data = {}
 last_message_id = None
 
-# ===== ヘルパー =====
 def normalize(text):
     t = text.strip()
     t = jaconv.kata2hira(t)
@@ -75,25 +82,16 @@ def write_txt():
 def push_to_github():
     try:
         git_dir = os.path.join(REPO_PATH, '.git')
-        # rebase中はスキップ
         if os.path.exists(os.path.join(git_dir, 'rebase-apply')) or os.path.exists(os.path.join(git_dir, 'rebase-merge')):
-            print("Git rebase中のため push をスキップ")
+            print('Git 状態: rebase 進行中のため push スキップ')
             return
-
-        # add + commit
         subprocess.run(["git", "add", "output.txt"], cwd=REPO_PATH, check=True)
         subprocess.run(["git", "commit", "-m", f"Update output.txt {datetime.datetime.now()}"], cwd=REPO_PATH, check=False)
-
-        # pullしてリモートを統合（rebase）
-        subprocess.run(["git", "pull", "--rebase", "origin", "main"], cwd=REPO_PATH, check=False)
-
-        # push
-        subprocess.run(["git", "push", "origin", "main"], cwd=REPO_PATH, check=False)
+        subprocess.run(["git", "push", "origin", "main"], cwd=REPO_PATH, check=True)
         print("GitHub updated successfully")
-    except Exception as e:
-        print(f"Git操作失敗: {e}")
+    except subprocess.CalledProcessError as e:
+        print(f"GitHub push failed: {e}")
 
-# ===== メイン処理 =====
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
@@ -109,7 +107,7 @@ async def fetch_and_save():
 
     try:
         after_param = discord.Object(last_message_id) if last_message_id else None
-        
+
         async for msg in channel.history(limit=100, oldest_first=True, after=after_param):
             key = msg.content.strip()
             if key:
@@ -120,11 +118,9 @@ async def fetch_and_save():
         if data:
             write_txt()
             push_to_github()
-
     except Exception as e:
         print(f"Error in fetch_and_save: {e}")
 
-# ===== Bot起動 =====
 try:
     bot.run(TOKEN)
 except discord.errors.LoginFailure:
