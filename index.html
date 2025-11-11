@@ -109,7 +109,7 @@ let originalLines = [];
 // 日付と Discord URL を取得
 async function loadLog() {
     try {
-        const response = await fetch('output.txt');
+        const response = await fetch('https://teruru-create.github.io/discord-word-log/output.txt');
         const text = await response.text();
         originalLines = text.trim().split('\n').map(line => {
             const date = extractDate(line);
