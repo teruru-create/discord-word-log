@@ -76,21 +76,21 @@ def classify(text):
 # ======================
 # TXT 出力
 # ======================
-def write_txt():
+def write_txt_from_map(normalized_map):
     groups = {"alpha": [], "hiragana": [], "katakana": [], "other": []}
+    for v in normalized_map.values():
+        cat = classify(v["raw"])
+        groups[cat].append(v)
 
-    for item in all_lines:
-        cat = classify(item["raw"])
-        groups[cat].append(item)
-
-    # 並べ替え
     for k in groups:
         groups[k] = sorted(groups[k], key=lambda x: normalize(x["raw"]))
 
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        f.write("=== LINES (sorted) ===\n")
-        f.write(f"Updated: {datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}\n\n")
+    # ここから追加
+    DISCORD_MSG_BASE_URL = f"https://discord.com/channels/@me/{CHANNEL_ID}/"
 
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        f.write("=== LINES (unique, latest kept, sorted) ===\n")
+        f.write(f"Updated: {datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}\n\n")
         for cat, title in [
             ("alpha", "A–Z"),
             ("hiragana", "ひらがな / 漢字"),
@@ -100,9 +100,11 @@ def write_txt():
             if groups[cat]:
                 f.write(f"--- {title} ---\n")
                 for it in groups[cat]:
-                    f.write(f"{it['raw']:<20} | {it['date']}\n")
+                    # ここで URL を作る
+                    url = f"{DISCORD_MSG_BASE_URL}{it['id']}"
+                    # 元の raw と日付に加えて URL を書き込む
+                    f.write(f"{it['raw']:<40} | {it['date']} | {url}\n")
                 f.write("\n")
-
 
 # ======================
 # GitHub Push
@@ -142,34 +144,53 @@ async def on_ready():
 # ======================
 @tasks.loop(seconds=60)
 async def fetch_and_save():
+    """
+    毎分チャンネル全履歴を読み、normalized をキーに最新メッセージのみ保持して output.txt を作る。
+    重要: 毎回辞書を再構築するため、二重追加・増え続ける問題を防げます。
+    """
     channel = bot.get_channel(CHANNEL_ID)
     if not channel:
         print("ERROR: channel not found")
         return
 
+    normalized_map = {}  # キー: normalize(text) -> 値: {"raw": original, "date": YYYY/MM/DD, "id": msg.id}
+
     try:
-        # ★ 全履歴取得 (limit=None)
+        # 全履歴を取得（必要に応じて limit=None を適宜調整）
         async for msg in channel.history(limit=None, oldest_first=True):
             text = msg.content.strip()
             if not text:
                 continue
 
+            norm = normalize(text)  # 例: カタカナ→ひらがな、小文字化など
             entry = {
                 "raw": text,
-                "date": msg.created_at.strftime("%Y/%m/%d")
+                "date": msg.created_at.strftime("%Y/%m/%d"),
+                "id": msg.id
             }
-            all_lines.append(entry)
 
-        # 書き込み & GitHub反映
-        write_txt()
-        push_to_github()
+            # 既存がなければ入れる。あれば「より新しいもの」を残す（created_at または id で比較）
+            if norm in normalized_map:
+                # 比較方法：メッセージID は Snowflake で増加するので id を比較することで新旧判定ができる
+                if msg.id > normalized_map[norm]["id"]:
+                    normalized_map[norm] = entry
+            else:
+                normalized_map[norm] = entry
+
+        # 書き込み & push
+        if normalized_map:
+            write_txt_from_map(normalized_map)
+            push_to_github()
+            print(f"fetch_and_save: wrote {len(normalized_map)} unique entries")
+        else:
+            print("fetch_and_save: no messages found or normalized_map empty")
 
     except Exception as e:
         print(f"Error in fetch_and_save: {e}")
-
 
 # ======================
 # Bot Run
 # ======================
 bot.run(TOKEN)
+
 
