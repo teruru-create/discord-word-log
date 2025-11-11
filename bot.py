@@ -194,11 +194,3 @@ async def fetch_and_save():
 # Bot Run
 # ======================
 bot.run(TOKEN)
-<<<<<<< HEAD
-<<<<<<<< HEAD:bot.py
-
-
-========
->>>>>>>> 526dea9 (ローカルの変更を一旦コミット):backup/bot1.py
-=======
->>>>>>> 526dea9 (ローカルの変更を一旦コミット)
