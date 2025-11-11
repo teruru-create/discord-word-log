@@ -5,7 +5,6 @@
 <title>久木性癖辞典</title>
 <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
 <style>
-<<<<<<< HEAD
 :root {
     --bg-color: #121212;
     --text-color: #e0e0e0;
@@ -15,7 +14,6 @@
     --button-text: #121212;
     --highlight: #ffea00;
 }
-
 body {
     background-color: var(--bg-color);
     color: var(--text-color);
@@ -23,7 +21,6 @@ body {
     padding: 30px;
     transition: background-color 0.3s, color 0.3s;
 }
-
 body.light {
     --bg-color: #f8f8f8;
     --text-color: #222222;
@@ -33,7 +30,6 @@ body.light {
     --button-text: #ffffff;
     --highlight: #ffea00;
 }
-
 h1 {
     color: #00ffff;
     text-align: center;
@@ -42,7 +38,6 @@ h1 {
     margin-bottom: 30px;
     display: inline-block;
 }
-
 #modeToggle {
     position: absolute;
     top: 20px;
@@ -56,10 +51,7 @@ h1 {
     color: var(--button-text);
     transition: 0.3s;
 }
-#modeToggle:hover {
-    background-color: #00bfff;
-}
-
+#modeToggle:hover { background-color: #00bfff; }
 #controls {
     display: flex;
     justify-content: center;
@@ -76,15 +68,9 @@ input, select, button {
 }
 input, select { background-color: #1f1f1f; color: #e0e0e0; }
 body.light input, body.light select { background-color: #ffffff; color: #222222; }
-
 button { background-color: var(--button-bg); color: var(--button-text); cursor: pointer; transition: 0.2s; }
 button:hover { background-color: #00bfff; }
-
-#log {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
+#log { display: flex; flex-direction: column; gap: 12px; }
 .card {
     background: var(--card-bg);
     border-left: 5px solid var(--card-border);
@@ -93,66 +79,21 @@ button:hover { background-color: #00bfff; }
     transition: transform 0.3s, box-shadow 0.3s, background 0.3s, border-color 0.3s;
     word-wrap: break-word;
 }
-.card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,255,255,0.5);
-}
-
+.card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,255,255,0.5); }
 .alpha { color: #00bfff; }
 .hiragana { color: #00ff7f; }
 .katakana { color: #bf00ff; }
 .highlight { background-color: var(--highlight); color: #000; }
-
-.stats {
-    margin-top: 20px;
-    font-size: 1.2em;
-    text-align: center;
-}
-=======
-    body {
-        font-family: "ヒラギノ角ゴ Pro", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, sans-serif;
-        background-color: #fff8f0;
-        color: #333;
-        padding: 40px;
-    }
-
-    h1 {
-        color: #ff69b4;
-        text-align: center;
-        font-size: 3em;
-        margin-bottom: 30px;
-        text-shadow: 1px 1px 2px #ffcccc;
-    }
-
-    pre {
-        font-size: 1.5em;
-        background-color: #fff0f5;
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 2px 2px 8px #f0c0d0;
-        white-space: pre-wrap;
-        line-height: 1.8em;
-    }
-
-    /* アルファベット・ひらがな・カタカナで色分け */
-    .alpha { color: #0077cc; font-weight: bold; }
-    .hiragana { color: #ff6600; }
-    .katakana { color: #cc00cc; }
-
->>>>>>> 7130f0b (ローカルの変更を一時コミット)
+.stats { margin-top: 20px; font-size: 1.2em; text-align: center; }
 </style>
 </head>
 <body>
-
-<<<<<<< HEAD
 <h1>❤久木性癖辞典❤</h1>
 <button id="modeToggle">🌙 ダーク/ホワイト切替</button>
 
 <div id="controls">
     <input type="text" id="searchBox" placeholder="🔍 検索ワードを入力">
-    <select id="dateFilter">
-        <option value="">全日付表示</option>
-    </select>
+    <select id="dateFilter"><option value="">全日付表示</option></select>
     <button onclick="copyLog()">📋 コピー</button>
     <button onclick="downloadLog()">💾 ダウンロード</button>
 </div>
@@ -167,7 +108,6 @@ async function loadLog() {
     try {
         const response = await fetch('output.txt');
         const text = await response.text();
-
         originalLines = text.trim().split('\n').map(line => {
             let type = '';
             if (line.match(/[A-Za-z]/)) type = 'alpha';
@@ -176,8 +116,7 @@ async function loadLog() {
             return { text: line, type: type, date: extractDate(line) };
         });
 
-        // 日付フィルター
-        const dates = Array.from(new Set(originalLines.map(l => l.date).filter(d => d)));
+        const dates = Array.from(new Set(originalLines.map(l=>l.date).filter(d=>d)));
         const dateSelect = document.getElementById('dateFilter');
         dateSelect.innerHTML = '<option value="">全日付表示</option>';
         dates.sort((a,b)=>b.localeCompare(a)).forEach(d=>{
@@ -188,40 +127,12 @@ async function loadLog() {
 
         updateDisplay();
         updateStats();
-=======
-<h1>📝 Discord Word Log</h1>
-
-<pre id="log"></pre>
-
-<script>
-async function loadLog() {
-    try {
-        // GitHub Pages に push された output.txt の URL
-        const response = await fetch('output.txt');
-        const text = await response.text();
-
-        // 色分け処理
-        const lines = text.split('\n').map(line => {
-            if (line.match(/[A-Za-z]/)) {
-                return line.replace(/(.+)/, '<span class="alpha">$1</span>');
-            } else if (line.match(/[\u3040-\u309F]/)) {
-                return line.replace(/(.+)/, '<span class="hiragana">$1</span>');
-            } else if (line.match(/[\u30A0-\u30FF]/)) {
-                return line.replace(/(.+)/, '<span class="katakana">$1</span>');
-            } else {
-                return line;
-            }
-        });
-
-        document.getElementById('log').innerHTML = lines.join('\n');
->>>>>>> 7130f0b (ローカルの変更を一時コミット)
     } catch (e) {
         document.getElementById('log').innerHTML = 'ログの読み込みに失敗しました';
         console.error(e);
     }
 }
 
-<<<<<<< HEAD
 function extractDate(line){
     const match = line.match(/\d{4}\/\d{1,2}\/\d{1,2}/);
     return match ? match[0] : '';
@@ -282,23 +193,14 @@ function downloadLog(){
     link.click();
 }
 
-// ダーク/ホワイト切替
 const modeBtn = document.getElementById('modeToggle');
 modeBtn.addEventListener('click', ()=>{
     document.body.classList.toggle('light');
 });
 
-// 自動更新
 setInterval(loadLog, 60000);
 window.onload = loadLog;
-=======
-// ページ読み込み時に実行
-loadLog();
-
-// 1分ごとに自動更新
-setInterval(loadLog, 60000);
->>>>>>> 7130f0b (ローカルの変更を一時コミット)
 </script>
-
 </body>
 </html>
+
