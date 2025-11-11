@@ -3,79 +3,180 @@
 <head>
 <meta charset="UTF-8">
 <title>Discord Word Log</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
 <style>
-    body {
-        font-family: "ヒラギノ角ゴ Pro", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, sans-serif;
-        background-color: #fff8f0;
-        color: #333;
-        padding: 40px;
-    }
-
-    h1 {
-        color: #ff69b4;
-        text-align: center;
-        font-size: 3em;
-        margin-bottom: 30px;
-        text-shadow: 1px 1px 2px #ffcccc;
-    }
-
-    pre {
-        font-size: 1.5em;
-        background-color: #fff0f5;
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 2px 2px 8px #f0c0d0;
-        white-space: pre-wrap;
-        line-height: 1.8em;
-    }
-
-    /* アルファベット・ひらがな・カタカナで色分け */
-    .alpha { color: #0077cc; font-weight: bold; }
-    .hiragana { color: #ff6600; }
-    .katakana { color: #cc00cc; }
-
+body {
+    background-color: #121212;
+    color: #e0e0e0;
+    font-family: 'Fira Code', monospace;
+    padding: 30px;
+}
+h1 {
+    color: #00ffff;
+    text-align: center;
+    font-size: 3em;
+    text-shadow: 0 0 10px #00ffff;
+    margin-bottom: 30px;
+}
+#controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+input, select, button {
+    padding: 10px;
+    font-size: 1em;
+    border-radius: 8px;
+    border: none;
+    outline: none;
+}
+input, select { background-color: #1f1f1f; color: #e0e0e0; }
+button { background-color: #00ffff; color: #121212; cursor: pointer; transition: 0.2s; }
+button:hover { background-color: #00bfff; }
+#log {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.card {
+    background: linear-gradient(135deg, #1f1f1f, #2a2a2a);
+    border-left: 5px solid #00ffff;
+    padding: 15px;
+    border-radius: 12px;
+    transition: transform 0.3s, box-shadow 0.3s;
+    word-wrap: break-word;
+}
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,255,255,0.5);
+}
+.alpha { color: #00bfff; }
+.hiragana { color: #00ff7f; }
+.katakana { color: #bf00ff; }
+.highlight { background-color: #ffea00; color: #000; }
+.stats {
+    margin-top: 20px;
+    font-size: 1.2em;
+    text-align: center;
+}
 </style>
 </head>
 <body>
 
-<h1>📝 Discord Word Log</h1>
+<h1>⚡ Discord Word Log</h1>
 
-<pre id="log"></pre>
+<div id="controls">
+    <input type="text" id="searchBox" placeholder="🔍 検索ワードを入力">
+    <select id="dateFilter">
+        <option value="">全日付表示</option>
+    </select>
+    <button onclick="copyLog()">📋 コピー</button>
+    <button onclick="downloadLog()">💾 ダウンロード</button>
+</div>
+
+<div id="log"></div>
+
+<div class="stats" id="stats"></div>
 
 <script>
+let originalLines = [];
+
 async function loadLog() {
     try {
-        // GitHub Pages に push された output.txt の URL
         const response = await fetch('output.txt');
         const text = await response.text();
 
-        // 色分け処理
-        const lines = text.split('\n').map(line => {
-            if (line.match(/[A-Za-z]/)) {
-                return line.replace(/(.+)/, '<span class="alpha">$1</span>');
-            } else if (line.match(/[\u3040-\u309F]/)) {
-                return line.replace(/(.+)/, '<span class="hiragana">$1</span>');
-            } else if (line.match(/[\u30A0-\u30FF]/)) {
-                return line.replace(/(.+)/, '<span class="katakana">$1</span>');
-            } else {
-                return line;
-            }
+        originalLines = text.trim().split('\n').map(line => {
+            let type = '';
+            if (line.match(/[A-Za-z]/)) type = 'alpha';
+            else if (line.match(/[\u3040-\u309F]/)) type = 'hiragana';
+            else if (line.match(/[\u30A0-\u30FF]/)) type = 'katakana';
+            return { text: line, type: type, date: extractDate(line) };
         });
 
-        document.getElementById('log').innerHTML = lines.join('\n');
+        // 日付フィルター用
+        const dates = Array.from(new Set(originalLines.map(l => l.date).filter(d => d)));
+        const dateSelect = document.getElementById('dateFilter');
+        dateSelect.innerHTML = '<option value="">全日付表示</option>';
+        dates.sort((a,b)=>b.localeCompare(a)).forEach(d=>{
+            const opt = document.createElement('option');
+            opt.value = d; opt.textContent = d;
+            dateSelect.appendChild(opt);
+        });
+
+        updateDisplay();
+        updateStats();
     } catch (e) {
         document.getElementById('log').innerHTML = 'ログの読み込みに失敗しました';
         console.error(e);
     }
 }
 
-// ページ読み込み時に実行
-loadLog();
+function extractDate(line){
+    const match = line.match(/\d{4}\/\d{1,2}\/\d{1,2}/);
+    return match ? match[0] : '';
+}
 
-// 1分ごとに自動更新
+function updateDisplay(){
+    const query = document.getElementById('searchBox').value.trim();
+    const dateFilter = document.getElementById('dateFilter').value;
+
+    let displayLines = originalLines.filter(l=>{
+        let pass = true;
+        if(query) pass = l.text.toLowerCase().includes(query.toLowerCase());
+        if(dateFilter) pass = pass && l.date===dateFilter;
+        return pass;
+    });
+
+    if(query){
+        displayLines = displayLines.map(l=>{
+            const regex = new RegExp(`(${query})`, 'gi');
+            const highlighted = l.text.replace(regex, '<span class="highlight">$1</span>');
+            return {...l, text: highlighted};
+        });
+    }
+
+    const logDiv = document.getElementById('log');
+    logDiv.innerHTML = '';
+    displayLines.forEach(l=>{
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `<span class="${l.type}">${l.text}</span>`;
+        logDiv.appendChild(div);
+    });
+}
+
+function updateStats(){
+    const alpha = originalLines.filter(l=>l.type==='alpha').length;
+    const hira = originalLines.filter(l=>l.type==='hiragana').length;
+    const kata = originalLines.filter(l=>l.type==='katakana').length;
+    document.getElementById('stats').textContent =
+        `アルファベット: ${alpha} | ひらがな: ${hira} | カタカナ: ${kata}`;
+}
+
+document.getElementById('searchBox').addEventListener('input', updateDisplay);
+document.getElementById('dateFilter').addEventListener('change', updateDisplay);
+
+function copyLog(){
+    const text = originalLines.map(l=>l.text.replace(/<[^>]+>/g,'')).join('\n');
+    navigator.clipboard.writeText(text);
+    alert('ログをコピーしました');
+}
+
+function downloadLog(){
+    const text = originalLines.map(l=>l.text.replace(/<[^>]+>/g,'')).join('\n');
+    const blob = new Blob([text], {type:'text/plain'});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'discord_log.txt';
+    link.click();
+}
+
 setInterval(loadLog, 60000);
+window.onload = loadLog;
 </script>
 
 </body>
 </html>
-
