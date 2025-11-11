@@ -50,7 +50,7 @@ if not TOKEN:
         exit(1)
 
     REPO_PATH = r"C:\Projects\discord-word-log"  # GitHub リポジトリのローカルパス
-    CHANNEL_ID = 1426221097346400418  # メッセージを取得するチャンネルID
+    CHANNEL_ID = 1123677033659109416  # メッセージを取得するチャンネルID
     OUTPUT_FILE = os.path.join(REPO_PATH, "output.txt")
 
     intents = discord.Intents.default()
