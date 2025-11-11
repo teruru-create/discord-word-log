@@ -2,22 +2,63 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Discord Word Log</title>
+<title>久木性癖辞典</title>
 <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
 <style>
+:root {
+    --bg-color: #121212;
+    --text-color: #e0e0e0;
+    --card-bg: linear-gradient(135deg, #1f1f1f, #2a2a2a);
+    --card-border: #00ffff;
+    --button-bg: #00ffff;
+    --button-text: #121212;
+    --highlight: #ffea00;
+}
+
 body {
-    background-color: #121212;
-    color: #e0e0e0;
+    background-color: var(--bg-color);
+    color: var(--text-color);
     font-family: 'Fira Code', monospace;
     padding: 30px;
+    transition: background-color 0.3s, color 0.3s;
 }
+
+body.light {
+    --bg-color: #f8f8f8;
+    --text-color: #222222;
+    --card-bg: linear-gradient(135deg, #ffffff, #e0e0e0);
+    --card-border: #00bfff;
+    --button-bg: #00bfff;
+    --button-text: #ffffff;
+    --highlight: #ffea00;
+}
+
 h1 {
     color: #00ffff;
     text-align: center;
     font-size: 3em;
     text-shadow: 0 0 10px #00ffff;
     margin-bottom: 30px;
+    display: inline-block;
 }
+
+#modeToggle {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    padding: 8px 15px;
+    font-size: 1em;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    transition: 0.3s;
+}
+#modeToggle:hover {
+    background-color: #00bfff;
+}
+
 #controls {
     display: flex;
     justify-content: center;
@@ -33,29 +74,34 @@ input, select, button {
     outline: none;
 }
 input, select { background-color: #1f1f1f; color: #e0e0e0; }
-button { background-color: #00ffff; color: #121212; cursor: pointer; transition: 0.2s; }
+body.light input, body.light select { background-color: #ffffff; color: #222222; }
+
+button { background-color: var(--button-bg); color: var(--button-text); cursor: pointer; transition: 0.2s; }
 button:hover { background-color: #00bfff; }
+
 #log {
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
 .card {
-    background: linear-gradient(135deg, #1f1f1f, #2a2a2a);
-    border-left: 5px solid #00ffff;
+    background: var(--card-bg);
+    border-left: 5px solid var(--card-border);
     padding: 15px;
     border-radius: 12px;
-    transition: transform 0.3s, box-shadow 0.3s;
+    transition: transform 0.3s, box-shadow 0.3s, background 0.3s, border-color 0.3s;
     word-wrap: break-word;
 }
 .card:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 20px rgba(0,255,255,0.5);
 }
+
 .alpha { color: #00bfff; }
 .hiragana { color: #00ff7f; }
 .katakana { color: #bf00ff; }
-.highlight { background-color: #ffea00; color: #000; }
+.highlight { background-color: var(--highlight); color: #000; }
+
 .stats {
     margin-top: 20px;
     font-size: 1.2em;
@@ -66,6 +112,7 @@ button:hover { background-color: #00bfff; }
 <body>
 
 <h1>⚡ Discord Word Log</h1>
+<button id="modeToggle">🌙 ダーク/ホワイト切替</button>
 
 <div id="controls">
     <input type="text" id="searchBox" placeholder="🔍 検索ワードを入力">
@@ -77,7 +124,6 @@ button:hover { background-color: #00bfff; }
 </div>
 
 <div id="log"></div>
-
 <div class="stats" id="stats"></div>
 
 <script>
@@ -96,7 +142,7 @@ async function loadLog() {
             return { text: line, type: type, date: extractDate(line) };
         });
 
-        // 日付フィルター用
+        // 日付フィルター
         const dates = Array.from(new Set(originalLines.map(l => l.date).filter(d => d)));
         const dateSelect = document.getElementById('dateFilter');
         dateSelect.innerHTML = '<option value="">全日付表示</option>';
@@ -174,9 +220,17 @@ function downloadLog(){
     link.click();
 }
 
+// ダーク/ホワイト切替
+const modeBtn = document.getElementById('modeToggle');
+modeBtn.addEventListener('click', ()=>{
+    document.body.classList.toggle('light');
+});
+
+// 自動更新
 setInterval(loadLog, 60000);
 window.onload = loadLog;
 </script>
 
 </body>
 </html>
+
