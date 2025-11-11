@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Discord Word Log</title>
+<style>
+body { font-family:sans-serif; max-width:900px; margin:auto; padding:20px; }
+h1 { border-bottom:2px solid #666; }
+pre { background:#f7f7f8; padding:12px; border-radius:6px; }
+.section { margin:12px 0; }
+.section h3 { cursor:pointer; }
+.item { display:flex; justify-content:space-between; padding:2px 0; }
+.raw { font-weight:600; }
+.date { color:#666; margin-left:12px; }
+#search { margin:12px 0; padding:6px; width:100%; font-size:1em; }
+</style>
+</head>
+<body>
+<h1>📘 Discord Word Log</h1>
+<input id="search" placeholder="検索..." />
+
+<div id="content">
+<pre id="txt-content">Loading...</pre>
+</div>
+
+<script>
+const searchBox = document.getElementById("search");
+const txtContent = document.getElementById("txt-content");
+
+async function fetchTXT(){
+    const res = await fetch("output.txt");
+    const txt = await res.text();
+    displayTXT(txt);
+}
+
+function displayTXT(txt){
+    const lines = txt.split("\n");
+    txtContent.innerHTML = "";
+    let filter = searchBox.value.trim().toLowerCase();
+    lines.forEach(l=>{
+        if(!filter || l.toLowerCase().includes(filter)){
+            txtContent.innerHTML += l + "\n";
+        }
+    });
+}
+
+searchBox.addEventListener("input", fetchTXT);
+setInterval(fetchTXT, 5000);
+
+fetchTXT();
+</script>
+</body>
+</html>
