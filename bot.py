@@ -110,18 +110,18 @@ def push_to_github():
     """
     try:
         # 変更をステージ
-        subprocess.run(["git", "add", "output.txt"], cwd=REPO_PATH, check=True)
+        subprocess.run(["git", "add", "output.txt"], cwd=REPO_PATH)
 
-        # commit があれば作る
+        # commit があれば作る（変更がなければ失敗してもOK）
         subprocess.run(
             ["git", "commit", "-m", f"Update output.txt {datetime.datetime.now()}"],
             cwd=REPO_PATH,
-            check=False  # 変更がなければ commit 失敗してもOK
+            check=False
         )
 
-        # push（失敗しても止めない）
+        # push（bot-branch に安全に push）
         result = subprocess.run(
-            ["git", "push", "origin", "main"],
+            ["git", "push", "origin", "bot-branch", "--force-with-lease"],
             cwd=REPO_PATH,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
