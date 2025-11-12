@@ -151,7 +151,7 @@ def push_to_github():
 
         # push
         push_result = subprocess.run(
-            ["git", "push", "origin", "bot-branch", "--force-with-lease"],
+            ["git", "push", "origin", "main", "--force-with-lease"],
             cwd=REPO_PATH,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

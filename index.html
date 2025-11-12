@@ -1231,8 +1231,7 @@ function updateDisplay() {
         content.className = 'card-content type-' + l.type;
         
         if(query) {
-            const regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\const catchphrases = [
-    'あなたの知らない"趣') + ')', 'gi');
+            const regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\        const dates = Array.from(new Set(originalLines.map(function(l) { return l.date;') + ')', 'gi');
             content.innerHTML = l.originalText.replace(regex, '<span class="highlight">$1</span>');
         } else {
             content.textContent = l.originalText;
