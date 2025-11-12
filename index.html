@@ -712,14 +712,28 @@ document.getElementById('colorGrid').addEventListener('click', function(e) {
     if(option) changeTheme(option.dataset.theme);
 });
 
-function changeCardSize(size) {
-    document.documentElement.style.setProperty('--card-size', size);
+let cardSizeTimeout;
+function changeCardSize(size, immediate) {
     document.getElementById('cardSizeValue').textContent = Math.round(size * 100) + '%';
-    try { localStorage.setItem('cardSize', size); } catch(e) {}
+    
+    if(immediate) {
+        document.documentElement.style.setProperty('--card-size', size);
+        try { localStorage.setItem('cardSize', size); } catch(e) {}
+    } else {
+        clearTimeout(cardSizeTimeout);
+        cardSizeTimeout = setTimeout(function() {
+            document.documentElement.style.setProperty('--card-size', size);
+            try { localStorage.setItem('cardSize', size); } catch(e) {}
+        }, 100);
+    }
 }
 
 document.getElementById('cardSizeSlider').addEventListener('input', function(e) {
-    changeCardSize(e.target.value);
+    changeCardSize(e.target.value, false);
+});
+
+document.getElementById('cardSizeSlider').addEventListener('change', function(e) {
+    changeCardSize(e.target.value, true);
 });
 
 function toggleAnimations(enabled) {
@@ -1160,7 +1174,7 @@ try {
     const savedThemeMode = localStorage.getItem('themeMode') === 'light';
     
     changeTheme(savedTheme, false);
-    changeCardSize(savedCardSize);
+    changeCardSize(savedCardSize, true);
     document.getElementById('cardSizeSlider').value = savedCardSize;
     document.getElementById('animationToggle').checked = savedAnimations;
     toggleAnimations(savedAnimations);
