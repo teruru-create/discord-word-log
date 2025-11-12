@@ -13,7 +13,8 @@ import asyncio
 TOKEN = os.environ.get("DISCORD_TOKEN")
 REPO_PATH = r"C:\Projects\discord-word-log"
 CHANNEL_ID = 1123677033659109416
-GUILD_ID = 1123677033659109416  # ここをサーバーIDに変更
+# ⚠️ GUILD_IDを正しいサーバーIDに変更してください（CHANNEL_IDとは別の値です）
+GUILD_ID = 865444542181933076  # ← ここを修正
 OUTPUT_FILE = os.path.join(REPO_PATH, "output.txt")
 
 # ======================
@@ -32,6 +33,7 @@ if TOKEN.startswith("Bot "):
 # ======================
 intents = discord.Intents.default()
 intents.message_content = True
+intents.guilds = True  # ギルド情報取得のため追加
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ======================
@@ -41,11 +43,6 @@ ALPHA_RE = re.compile(r"[A-Za-z]")
 HIRAGANA_RE = re.compile(r"[\u3040-\u309F]")
 KATAKANA_RE = re.compile(r"[\u30A0-\u30FF]")
 KANJI_RE = re.compile(r"[\u4E00-\u9FFF]")
-
-# ======================
-# データ保持
-# ======================
-all_lines = []
 
 # ======================
 # ひらがな・小文字に統一
@@ -110,17 +107,25 @@ def push_to_github():
     """
     try:
         # 変更をステージ
-        subprocess.run(["git", "add", "output.txt"], cwd=REPO_PATH)
+        subprocess.run(["git", "add", "output.txt"], cwd=REPO_PATH, check=False)
 
         # commit があれば作る（変更がなければ失敗してもOK）
-        subprocess.run(
+        result = subprocess.run(
             ["git", "commit", "-m", f"Update output.txt {datetime.datetime.now()}"],
             cwd=REPO_PATH,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
             check=False
         )
 
+        # 変更がない場合はスキップ
+        if "nothing to commit" in result.stdout or "nothing to commit" in result.stderr:
+            print("ℹ️ No changes to commit")
+            return
+
         # push（bot-branch に安全に push）
-        result = subprocess.run(
+        push_result = subprocess.run(
             ["git", "push", "origin", "bot-branch", "--force-with-lease"],
             cwd=REPO_PATH,
             stdout=subprocess.PIPE,
@@ -129,22 +134,14 @@ def push_to_github():
             check=False
         )
 
-        if result.returncode == 0:
+        if push_result.returncode == 0:
             print("✅ GitHub updated")
         else:
             print("⚠ GitHub push failed (ignored):")
-            print(result.stderr.strip())
+            print(push_result.stderr.strip())
 
     except Exception as e:
         print(f"⚠ GitHub push failed (ignored): {e}")
-
-# ======================
-# Bot準備完了
-# ======================
-@bot.event
-async def on_ready():
-    print(f"Logged in as {bot.user}")
-    fetch_and_save.start()
 
 # ======================
 # Discord → TXT更新処理
@@ -153,13 +150,17 @@ async def on_ready():
 async def fetch_and_save():
     channel = bot.get_channel(CHANNEL_ID)
     if not channel:
-        print("ERROR: channel not found")
+        print(f"ERROR: channel {CHANNEL_ID} not found")
         return
 
     normalized_map = {}
 
     try:
+        print(f"Fetching messages from channel {CHANNEL_ID}...")
+        message_count = 0
+        
         async for msg in channel.history(limit=None, oldest_first=True):
+            message_count += 1
             text = msg.content.strip()
             if not text:
                 continue
@@ -177,20 +178,68 @@ async def fetch_and_save():
             else:
                 normalized_map[norm] = entry
 
+        print(f"Fetched {message_count} messages, {len(normalized_map)} unique entries")
+
         if normalized_map:
             write_txt_from_map(normalized_map)
             push_to_github()
-            print(f"fetch_and_save: wrote {len(normalized_map)} unique entries")
+            print(f"✅ Successfully wrote {len(normalized_map)} unique entries")
         else:
-            print("fetch_and_save: no messages found or normalized_map empty")
+            print("⚠️ No messages found or normalized_map empty")
 
+    except discord.errors.Forbidden as e:
+        print(f"❌ Permission Error: Bot doesn't have access to channel. Error: {e}")
     except discord.errors.HTTPException as e:
-        print(f"Discord API Error: {e}, retrying in 5s...")
+        print(f"❌ Discord API Error: {e}, retrying in 5s...")
         await asyncio.sleep(5)
     except Exception as e:
-        print(f"Error in fetch_and_save: {e}")
+        print(f"❌ Error in fetch_and_save: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+
+# タスク開始前に準備完了を待つ
+@fetch_and_save.before_loop
+async def before_fetch_and_save():
+    print("Waiting for bot to be ready...")
+    await bot.wait_until_ready()
+    print("Bot is ready, starting fetch_and_save task")
+
+# ======================
+# Bot準備完了
+# ======================
+@bot.event
+async def on_ready():
+    print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
+    print(f"Connected to {len(bot.guilds)} guild(s)")
+    
+    # チャンネルの存在確認
+    channel = bot.get_channel(CHANNEL_ID)
+    if channel:
+        print(f"✅ Target channel found: {channel.name}")
+    else:
+        print(f"❌ ERROR: Channel {CHANNEL_ID} not found!")
+    
+    # タスクがまだ開始されていない場合のみ開始
+    if not fetch_and_save.is_running():
+        fetch_and_save.start()
+
+# ======================
+# エラーハンドリング
+# ======================
+@bot.event
+async def on_error(event, *args, **kwargs):
+    print(f"❌ Error in {event}:")
+    import traceback
+    traceback.print_exc()
 
 # ======================
 # Bot Run
 # ======================
-bot.run(TOKEN)
+try:
+    bot.run(TOKEN)
+except discord.errors.LoginFailure:
+    print("❌ ERROR: Invalid token. Please check DISCORD_TOKEN environment variable")
+except Exception as e:
+    print(f"❌ ERROR: Failed to start bot: {e}")
+    import traceback
+    traceback.print_exc()
