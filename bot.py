@@ -6,6 +6,7 @@ import subprocess
 import jaconv
 import re
 import asyncio
+import json
 
 # ======================
 # 設定
@@ -13,9 +14,9 @@ import asyncio
 TOKEN = os.environ.get("DISCORD_TOKEN")
 REPO_PATH = r"C:\Projects\discord-word-log"
 CHANNEL_ID = 1123677033659109416
-# ⚠️ GUILD_IDを正しいサーバーIDに変更してください（CHANNEL_IDとは別の値です）
-GUILD_ID = 865444542181933076  # ← ここを修正
+GUILD_ID = 865444542181933076  
 OUTPUT_FILE = os.path.join(REPO_PATH, "output.txt")
+TAGS_FILE = os.path.join(REPO_PATH, "tags.json")
 
 # ======================
 # トークンチェック
@@ -33,7 +34,8 @@ if TOKEN.startswith("Bot "):
 # ======================
 intents = discord.Intents.default()
 intents.message_content = True
-intents.guilds = True  # ギルド情報取得のため追加
+intents.guilds = True
+intents.members = True  # メンバー情報取得のため追加
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ======================
@@ -69,7 +71,7 @@ def classify(text):
     return "other"
 
 # ======================
-# TXT 出力（ジャンプURL付き）
+# TXT 出力(ユーザー名付き)
 # ======================
 def write_txt_from_map(normalized_map):
     groups = {"alpha": [], "hiragana": [], "katakana": [], "other": []}
@@ -93,25 +95,48 @@ def write_txt_from_map(normalized_map):
                 f.write(f"--- {title} ---\n")
                 for it in groups[cat]:
                     url = f"https://discord.com/channels/{GUILD_ID}/{CHANNEL_ID}/{it['id']}"
-                    f.write(f"{it['raw']:<40} | {it['date']} | {url}\n")
+                    # フォーマット: メッセージ | 日付 | URL | ユーザー名
+                    f.write(f"{it['raw']:<40} | {it['date']} | {url} | {it['username']}\n")
                 f.write("\n")
+
+# ======================
+# Tags.json 読み込み
+# ======================
+def load_tags():
+    try:
+        if os.path.exists(TAGS_FILE):
+            with open(TAGS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"⚠ Tags load error: {e}")
+    return {}
+
+# ======================
+# Tags.json 保存
+# ======================
+def save_tags(tags_data):
+    try:
+        with open(TAGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(tags_data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        print(f"⚠ Tags save error: {e}")
+        return False
 
 # ======================
 # GitHub Push
 # ======================
 def push_to_github():
     """
-    output.txt を GitHub に push する。
-    - エラーが出ても bot が止まらない
-    - pull は行わず、ローカルの変更を優先
+    output.txt と tags.json を GitHub に push する。
     """
     try:
         # 変更をステージ
-        subprocess.run(["git", "add", "output.txt"], cwd=REPO_PATH, check=False)
+        subprocess.run(["git", "add", "output.txt", "tags.json"], cwd=REPO_PATH, check=False)
 
-        # commit があれば作る（変更がなければ失敗してもOK）
+        # commit 
         result = subprocess.run(
-            ["git", "commit", "-m", f"Update output.txt {datetime.datetime.now()}"],
+            ["git", "commit", "-m", f"Update output.txt and tags.json {datetime.datetime.now()}"],
             cwd=REPO_PATH,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -124,7 +149,7 @@ def push_to_github():
             print("ℹ️ No changes to commit")
             return
 
-        # push（bot-branch に安全に push）
+        # push
         push_result = subprocess.run(
             ["git", "push", "origin", "bot-branch", "--force-with-lease"],
             cwd=REPO_PATH,
@@ -165,11 +190,15 @@ async def fetch_and_save():
             if not text:
                 continue
 
+            # ユーザー名取得
+            username = msg.author.display_name if msg.author else "Unknown"
+
             norm = normalize(text)
             entry = {
                 "raw": text,
                 "date": msg.created_at.strftime("%Y/%m/%d"),
-                "id": msg.id
+                "id": msg.id,
+                "username": username
             }
 
             if norm in normalized_map:
@@ -182,6 +211,11 @@ async def fetch_and_save():
 
         if normalized_map:
             write_txt_from_map(normalized_map)
+            
+            # tags.json が存在しない場合は空ファイルを作成
+            if not os.path.exists(TAGS_FILE):
+                save_tags({})
+            
             push_to_github()
             print(f"✅ Successfully wrote {len(normalized_map)} unique entries")
         else:
