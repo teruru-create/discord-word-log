@@ -606,7 +606,7 @@ button.secondary:hover { border-color: var(--accent-primary); box-shadow: var(--
 <div class="container">
     <div class="header">
         <h1>❤ 久木性癖辞典 ❤</h1>
-        <div class="subtitle">あなたの言葉を、美しく記録する</div>
+        <div class="subtitle" id="subtitle"></div>
     </div>
 
     <div class="controls-wrapper">
@@ -646,6 +646,20 @@ button.secondary:hover { border-color: var(--accent-primary); box-shadow: var(--
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 <script>
+const catchphrases = [
+    'あなたの知らない"趣味の深み"、ここに集結',
+    '好奇心が止まらない、性癖の図鑑',
+    'ここでしか見られない、ちょっと変わった世界',
+    '性癖の百科事典、開幕',
+    '偏愛コレクション、久木セレクト',
+    '趣味も、嗜好も、丸ごと一冊',
+    '扉を開けると、知られざる欲望の森',
+    '誰も語らなかった"好き"を覗く',
+    '日常の裏側、性癖の世界'
+];
+
+document.getElementById('subtitle').textContent = catchphrases[Math.floor(Math.random() * catchphrases.length)];
+
 let originalLines = [];
 let favorites = [];
 let showOnlyFavorites = false;
