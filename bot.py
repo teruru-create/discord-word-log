@@ -17,6 +17,8 @@ CHANNEL_ID = 1123677033659109416
 GUILD_ID = 865444542181933076  
 OUTPUT_FILE = os.path.join(REPO_PATH, "output.txt")
 TAGS_FILE = os.path.join(REPO_PATH, "tags.json")
+ADMIN_FILE = os.path.join(REPO_PATH, "admin.json")
+VOTES_FILE = os.path.join(REPO_PATH, "votes.json")
 
 # ======================
 # トークンチェック
@@ -35,7 +37,7 @@ if TOKEN.startswith("Bot "):
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
-intents.members = True  # メンバー情報取得のため追加
+intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ======================
@@ -71,6 +73,32 @@ def classify(text):
     return "other"
 
 # ======================
+# JSON 読み込み
+# ======================
+def load_json_file(filepath, default=None):
+    if default is None:
+        default = {}
+    try:
+        if os.path.exists(filepath):
+            with open(filepath, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"⚠ Error loading {filepath}: {e}")
+    return default
+
+# ======================
+# JSON 保存
+# ======================
+def save_json_file(filepath, data):
+    try:
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        print(f"⚠ Error saving {filepath}: {e}")
+        return False
+
+# ======================
 # TXT 出力(ユーザー名付き)
 # ======================
 def write_txt_from_map(normalized_map):
@@ -100,43 +128,20 @@ def write_txt_from_map(normalized_map):
                 f.write("\n")
 
 # ======================
-# Tags.json 読み込み
-# ======================
-def load_tags():
-    try:
-        if os.path.exists(TAGS_FILE):
-            with open(TAGS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-    except Exception as e:
-        print(f"⚠ Tags load error: {e}")
-    return {}
-
-# ======================
-# Tags.json 保存
-# ======================
-def save_tags(tags_data):
-    try:
-        with open(TAGS_FILE, "w", encoding="utf-8") as f:
-            json.dump(tags_data, f, ensure_ascii=False, indent=2)
-        return True
-    except Exception as e:
-        print(f"⚠ Tags save error: {e}")
-        return False
-
-# ======================
 # GitHub Push
 # ======================
 def push_to_github():
     """
-    output.txt と tags.json を GitHub に push する。
+    output.txt, tags.json, admin.json, votes.json を GitHub に push する。
     """
     try:
         # 変更をステージ
-        subprocess.run(["git", "add", "output.txt", "tags.json"], cwd=REPO_PATH, check=False)
+        subprocess.run(["git", "add", "output.txt", "tags.json", "admin.json", "votes.json"], 
+                      cwd=REPO_PATH, check=False)
 
         # commit 
         result = subprocess.run(
-            ["git", "commit", "-m", f"Update output.txt and tags.json {datetime.datetime.now()}"],
+            ["git", "commit", "-m", f"Update files {datetime.datetime.now()}"],
             cwd=REPO_PATH,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -212,9 +217,13 @@ async def fetch_and_save():
         if normalized_map:
             write_txt_from_map(normalized_map)
             
-            # tags.json が存在しない場合は空ファイルを作成
+            # 各JSONファイルが存在しない場合は空ファイルを作成
             if not os.path.exists(TAGS_FILE):
-                save_tags({})
+                save_json_file(TAGS_FILE, {})
+            if not os.path.exists(ADMIN_FILE):
+                save_json_file(ADMIN_FILE, {"hidden": [], "deleted": []})
+            if not os.path.exists(VOTES_FILE):
+                save_json_file(VOTES_FILE, {"current": {}, "archive": []})
             
             push_to_github()
             print(f"✅ Successfully wrote {len(normalized_map)} unique entries")
