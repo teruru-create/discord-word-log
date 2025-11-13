@@ -211,35 +211,6 @@ h1 {
 .page { display: none; }
 .page.active { display: block; }
 
-.settings-btn { position: fixed; top: 20px; right: 20px; z-index: 1001; }
-
-.settings-panel {
-    position: fixed;
-    top: 0;
-    right: -400px;
-    width: 400px;
-    height: 100vh;
-    background: var(--bg-secondary);
-    box-shadow: -5px 0 30px rgba(0,0,0,0.5);
-    transition: right var(--animation-speed) ease;
-    z-index: 1002;
-    overflow-y: auto;
-    padding: 30px;
-}
-
-.settings-panel.open { right: 0; }
-
-.settings-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-}
-
-.settings-title { font-size: 1.5em; font-weight: 700; }
-
-.close-settings { background: transparent; font-size: 1.5em; padding: 5px 10px; }
-
 .setting-group {
     margin-bottom: 25px;
     padding-bottom: 25px;
@@ -474,7 +445,7 @@ button.danger {
     background: linear-gradient(135deg, rgba(255, 215, 0, 0.05), var(--bg-secondary));
 }
 
-.card.pinned::before {
+.card.pinned::after {
     content: '📌';
     position: absolute;
     top: 10px;
@@ -691,7 +662,7 @@ button.danger {
 .fab {
     position: fixed;
     bottom: 30px;
-    right: 30px;
+    right: 100px;
     width: 60px;
     height: 60px;
     border-radius: 50%;
@@ -756,9 +727,9 @@ button.danger {
     .controls-wrapper { padding: 20px; }
     .top-controls { flex-direction: column; }
     .search-box { width: 100%; }
-    .settings-panel { width: 100%; right: -100%; }
     .side-menu { width: 100%; left: -100%; }
     .toast { min-width: 250px; }
+    .fab { right: 30px; }
 }
 </style>
 </head>
@@ -777,67 +748,6 @@ button.danger {
     <div class="menu-item" onclick="switchPage('voteRanking')">🗳️ 投票ランキング</div>
     <div class="menu-item" onclick="switchPage('aiGenerate')">🤖 AI創作</div>
     <div class="menu-item" onclick="switchPage('settings')">⚙️ 設定</div>
-</div>
-
-<button class="settings-btn secondary" onclick="toggleSettings()">⚙️ 設定</button>
-
-<div class="settings-panel" id="settingsPanel">
-    <div class="settings-header">
-        <div class="settings-title">⚙️ 設定</div>
-        <button class="close-settings" onclick="toggleSettings()">✕</button>
-    </div>
-
-    <div class="setting-group">
-        <label class="setting-label">🎨 テーマカラー</label>
-        <div class="color-grid" id="colorGrid">
-            <div class="color-option active" style="background: linear-gradient(135deg, #6366f1, #8b5cf6)" data-theme="default"></div>
-            <div class="color-option" style="background: linear-gradient(135deg, #f43f5e, #ec4899)" data-theme="pink"></div>
-            <div class="color-option" style="background: linear-gradient(135deg, #10b981, #06b6d4)" data-theme="green"></div>
-            <div class="color-option" style="background: linear-gradient(135deg, #f59e0b, #ef4444)" data-theme="orange"></div>
-            <div class="color-option" style="background: linear-gradient(135deg, #8b5cf6, #ec4899)" data-theme="purple"></div>
-            <div class="color-option" style="background: linear-gradient(135deg, #0ea5e9, #6366f1)" data-theme="blue"></div>
-        </div>
-    </div>
-
-    <div class="setting-group">
-        <label class="setting-label">📏 カードサイズ: <span id="cardSizeValue">110%</span></label>
-        <div class="slider-container">
-            <span>小</span>
-            <input type="range" id="cardSizeSlider" min="0.7" max="1.5" step="0.1" value="1.1">
-            <span>大</span>
-        </div>
-    </div>
-
-    <div class="setting-group">
-        <label class="setting-label">✨ アニメーション</label>
-        <label class="toggle-switch">
-            <input type="checkbox" id="animationToggle" checked>
-            <span class="toggle-slider"></span>
-        </label>
-    </div>
-
-    <div class="setting-group">
-        <label class="setting-label">🌓 ダーク/ライトモード</label>
-        <label class="toggle-switch">
-            <input type="checkbox" id="themeToggle">
-            <span class="toggle-slider"></span>
-        </label>
-    </div>
-
-    <div class="setting-group">
-        <label class="setting-label">🔐 管理者モード</label>
-        <div style="display: flex; align-items: center;">
-            <input type="password" id="adminPassword" class="admin-password" placeholder="パスワード">
-            <button onclick="toggleAdminMode()" id="adminToggleBtn">ログイン</button>
-        </div>
-        <div id="adminStatus" style="margin-top: 10px; font-size: 0.9em;"></div>
-    </div>
-
-    <div class="setting-group">
-        <label class="setting-label">🗑️ データ管理</label>
-        <button onclick="clearAllTags()" style="width: 100%; margin-bottom: 10px;">すべてのタグを削除</button>
-        <button onclick="resetVotes()" style="width: 100%;">投票をリセット</button>
-    </div>
 </div>
 
 <div class="container">
@@ -931,8 +841,59 @@ button.danger {
     <!-- 設定ページ -->
     <div id="settingsPageMain" class="page">
         <div class="controls-wrapper">
-            <h2>⚙️ 設定</h2>
-            <p style="color: var(--text-secondary); margin-top: 10px;">右上の「⚙️ 設定」ボタンからアクセスしてください</p>
+            <h2 style="margin-bottom: 20px;">⚙️ 設定</h2>
+            
+            <div class="setting-group">
+                <label class="setting-label">🎨 テーマカラー</label>
+                <div class="color-grid" id="colorGrid">
+                    <div class="color-option active" style="background: linear-gradient(135deg, #6366f1, #8b5cf6)" data-theme="default"></div>
+                    <div class="color-option" style="background: linear-gradient(135deg, #f43f5e, #ec4899)" data-theme="pink"></div>
+                    <div class="color-option" style="background: linear-gradient(135deg, #10b981, #06b6d4)" data-theme="green"></div>
+                    <div class="color-option" style="background: linear-gradient(135deg, #f59e0b, #ef4444)" data-theme="orange"></div>
+                    <div class="color-option" style="background: linear-gradient(135deg, #8b5cf6, #ec4899)" data-theme="purple"></div>
+                    <div class="color-option" style="background: linear-gradient(135deg, #0ea5e9, #6366f1)" data-theme="blue"></div>
+                </div>
+            </div>
+
+            <div class="setting-group">
+                <label class="setting-label">📏 カードサイズ: <span id="cardSizeValue">110%</span></label>
+                <div class="slider-container">
+                    <span>小</span>
+                    <input type="range" id="cardSizeSlider" min="0.7" max="1.5" step="0.1" value="1.1">
+                    <span>大</span>
+                </div>
+            </div>
+
+            <div class="setting-group">
+                <label class="setting-label">✨ アニメーション</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="animationToggle" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-group">
+                <label class="setting-label">🌓 ダーク/ライトモード</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="themeToggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-group">
+                <label class="setting-label">🔐 管理者モード</label>
+                <div style="display: flex; align-items: center;">
+                    <input type="password" id="adminPassword" class="admin-password" placeholder="パスワード">
+                    <button onclick="toggleAdminMode()" id="adminToggleBtn">ログイン</button>
+                </div>
+                <div id="adminStatus" style="margin-top: 10px; font-size: 0.9em;"></div>
+            </div>
+
+            <div class="setting-group">
+                <label class="setting-label">🗑️ データ管理</label>
+                <button onclick="clearAllTags()" style="width: 100%; margin-bottom: 10px;">すべてのタグを削除</button>
+                <button onclick="resetVotes()" style="width: 100%;">投票をリセット</button>
+            </div>
         </div>
     </div>
 </div>
@@ -1038,10 +999,6 @@ function switchPage(page) {
     toggleMenu();
 }
 
-function toggleSettings() {
-    document.getElementById('settingsPanel').classList.toggle('open');
-}
-
 async function syncAdminData() {
     if(!isAdminMode) return;
     
@@ -1059,7 +1016,7 @@ async function syncAdminData() {
 
 function toggleAdminMode() {
     const password = document.getElementById('adminPassword').value;
-    const correctPassword = 'seiheki2025';
+    const correctPassword = 'admin123';
     
     if(isAdminMode) {
         isAdminMode = false;
@@ -1436,7 +1393,6 @@ function updateDisplay() {
         return pass;
     });
 
-    // ピン留めを先頭に
     displayLines.sort((a, b) => {
         const aPin = pinnedMessages.includes(a.originalText);
         const bPin = pinnedMessages.includes(b.originalText);
@@ -1524,16 +1480,12 @@ function updateDisplay() {
         const content = document.createElement('div');
         content.className = 'card-content type-' + l.type;
         
-       if (query) {
-    // 正規表現の特殊文字をエスケープ
-    const regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
-    // マッチ箇所をハイライト
-    content.innerHTML = l.originalText.replace(regex, '<span class="highlight">$1</span>');
-} else {
-    // 検索語がないときはそのまま表示
-    content.textContent = l.originalText;
-}
-
+        if(query) {
+            const regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\                <input type="number" id="aiCount" class="ai-count-input" value="5" min="1" max="') + ')', 'gi');
+            content.innerHTML = l.originalText.replace(regex, '<span class="highlight">$1</span>');
+        } else {
+            content.textContent = l.originalText;
+        }
         
         card.appendChild(content);
 
@@ -1543,7 +1495,7 @@ function updateDisplay() {
             const tagsDiv = document.createElement('div');
             tagsDiv.className = 'card-tags';
             uniqueTags.forEach(tag => {
-                const tagSpan = document.createElement('div');
+                const tagSpan = document.createElement('span');
                 tagSpan.className = 'tag';
                 tagSpan.innerHTML = '🏷️ ' + tag + ' <span class="tag-remove">✕</span>';
                 tagSpan.querySelector('.tag-remove').onclick = () => removeTag(l.originalText, tag);
