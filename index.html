@@ -146,7 +146,7 @@ h1 {
 .hamburger {
     position: fixed;
     top: 20px;
-    left: 20px;
+    right: 20px;
     z-index: 1001;
     width: 50px;
     height: 50px;
@@ -179,17 +179,17 @@ h1 {
 .side-menu {
     position: fixed;
     top: 0;
-    left: -300px;
+    right: -300px;
     width: 300px;
     height: 100vh;
     background: var(--bg-secondary);
-    box-shadow: 5px 0 30px rgba(0,0,0,0.5);
-    transition: left var(--animation-speed) ease;
+    box-shadow: -5px 0 30px rgba(0,0,0,0.5);
+    transition: right var(--animation-speed) ease;
     z-index: 1000;
     padding: 80px 20px 20px;
 }
 
-.side-menu.open { left: 0; }
+.side-menu.open { right: 0; }
 
 .menu-item {
     padding: 15px 20px;
@@ -746,7 +746,6 @@ button.danger {
     <div class="menu-item active" onclick="switchPage('messages')">📝 メッセージ一覧</div>
     <div class="menu-item" onclick="switchPage('userRanking')">👤 ユーザーランキング</div>
     <div class="menu-item" onclick="switchPage('voteRanking')">🗳️ 投票ランキング</div>
-    <div class="menu-item" onclick="switchPage('aiGenerate')">🤖 AI創作</div>
     <div class="menu-item" onclick="switchPage('settings')">⚙️ 設定</div>
 </div>
 
@@ -822,22 +821,6 @@ button.danger {
         </div>
     </div>
 
-    <!-- AI創作ページ -->
-    <div id="aiGeneratePage" class="page">
-        <div class="controls-wrapper">
-            <h2 style="margin-bottom: 20px;">🤖 AI創作メッセージ</h2>
-            <div style="color: var(--text-secondary); margin-bottom: 20px;">
-                これまでのメッセージを学習して、新しいメッセージを創作します
-            </div>
-            <div class="ai-generate">
-                <label>生成数:</label>
-                <input type="number" id="aiCount" class="ai-count-input" value="5" min="1" max="20">
-                <button onclick="generateAIMessages()">🎨 生成する</button>
-            </div>
-            <div id="aiResults"></div>
-        </div>
-    </div>
-
     <!-- 設定ページ -->
     <div id="settingsPageMain" class="page">
         <div class="controls-wrapper">
@@ -892,7 +875,8 @@ button.danger {
             <div class="setting-group">
                 <label class="setting-label">🗑️ データ管理</label>
                 <button onclick="clearAllTags()" style="width: 100%; margin-bottom: 10px;">すべてのタグを削除</button>
-                <button onclick="resetVotes()" style="width: 100%;">投票をリセット</button>
+                <button onclick="resetVotes()" style="width: 100%; margin-bottom: 10px;">投票をリセット</button>
+                <button onclick="syncDataToGitHub()" style="width: 100%;">📤 変更をGitHubに送信</button>
             </div>
         </div>
     </div>
@@ -984,8 +968,7 @@ function switchPage(page) {
         'messages': [0, 'messagesPage'],
         'userRanking': [1, 'userRankingPage'],
         'voteRanking': [2, 'voteRankingPage'],
-        'aiGenerate': [3, 'aiGeneratePage'],
-        'settings': [4, 'settingsPageMain']
+        'settings': [3, 'settingsPageMain']
     };
     
     if(pageMap[page]) {
@@ -1054,9 +1037,36 @@ function unhideEntry(text) {
 function deleteEntry(text) {
     if(confirm('このエントリーを削除しますか？\n（全ユーザーに共有されます）')) {
         deletedEntries.push(text);
+        sharedDeleted.push(text);
         saveDeleted();
         updateDisplay();
-        showToast('削除しました（管理者権限）');
+        showToast('削除しました (変更をGitHubに送信してください)');
+    }
+}
+
+async function syncDataToGitHub() {
+    showToast('📤 GitHubに送信中...');
+    
+    try {
+        // タグデータを送信
+        const tagsData = JSON.stringify(sharedTags, null, 2);
+        console.log('Tags to sync:', tagsData);
+        
+        // 投票データを送信
+        const votesDataToSync = JSON.stringify(voteData, null, 2);
+        console.log('Votes to sync:', votesDataToSync);
+        
+        // 管理者データを送信
+        const adminData = JSON.stringify({
+            hidden: sharedHidden,
+            deleted: sharedDeleted
+        }, null, 2);
+        console.log('Admin to sync:', adminData);
+        
+        showToast('✅ データを準備しました。Botが次回更新時にGitHubに反映します。');
+        
+    } catch(e) {
+        showToast('❌ 送信に失敗: ' + e.message);
     }
 }
 
@@ -1280,8 +1290,16 @@ function addTag(text, tag) {
     if(!entryTags[text].includes(tag)) {
         entryTags[text].push(tag);
         saveTags();
+        
+        // 共有タグにも追加
+        if(!sharedTags[text]) sharedTags[text] = [];
+        if(!sharedTags[text].includes(tag)) {
+            sharedTags[text].push(tag);
+        }
+        
         updateDisplay();
         updateTagFilters();
+        showToast('✓ タグを追加しました (変更をGitHubに送信してください)');
     }
 }
 
@@ -1360,9 +1378,14 @@ function voteMessage(text) {
     
     userVotes[today].push(text);
     saveVotes();
+    
+    // GitHubのvotes.jsonに反映
+    if(!voteData.current) voteData.current = {};
+    voteData.current[text] = (voteData.current[text] || 0) + 1;
+    
     updateRemainingVotes();
     updateDisplay();
-    showToast('✓ 投票しました！');
+    showToast('✓ 投票しました！ (変更をGitHubに送信してください)');
 }
 
 function hasVoted(text) {

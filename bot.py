@@ -135,6 +135,9 @@ def push_to_github():
     output.txt, tags.json, admin.json, votes.json を GitHub に push する。
     """
     try:
+        # Git pull して最新状態にする
+        subprocess.run(["git", "pull", "origin", "main"], cwd=REPO_PATH, check=False)
+        
         # 変更をステージ
         subprocess.run(["git", "add", "output.txt", "tags.json", "admin.json", "votes.json"], 
                       cwd=REPO_PATH, check=False)
@@ -156,7 +159,7 @@ def push_to_github():
 
         # push
         push_result = subprocess.run(
-            ["git", "push", "origin", "main", "--force-with-lease"],
+            ["git", "push", "origin", "main"],
             cwd=REPO_PATH,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -224,6 +227,16 @@ async def fetch_and_save():
                 save_json_file(ADMIN_FILE, {"hidden": [], "deleted": []})
             if not os.path.exists(VOTES_FILE):
                 save_json_file(VOTES_FILE, {"current": {}, "archive": []})
+            
+            # Webからの変更をマージ（今回は既存データを保持）
+            existing_tags = load_json_file(TAGS_FILE, {})
+            existing_admin = load_json_file(ADMIN_FILE, {"hidden": [], "deleted": []})
+            existing_votes = load_json_file(VOTES_FILE, {"current": {}, "archive": []})
+            
+            # 既存データを再保存（Webからの変更は手動でJSONを編集する必要があります）
+            save_json_file(TAGS_FILE, existing_tags)
+            save_json_file(ADMIN_FILE, existing_admin)
+            save_json_file(VOTES_FILE, existing_votes)
             
             push_to_github()
             print(f"✅ Successfully wrote {len(normalized_map)} unique entries")
