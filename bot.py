@@ -7,14 +7,19 @@ import jaconv
 import re
 import asyncio
 import json
+from aiohttp import web
+import requests
 
 # ======================
 # 設定
 # ======================
 TOKEN = os.environ.get("DISCORD_TOKEN")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+
 REPO_PATH = r"C:\Projects\discord-word-log"
 CHANNEL_ID = 1123677033659109416
-GUILD_ID = 865444542181933076  
+GUILD_ID = 865444542181933076
+
 OUTPUT_FILE = os.path.join(REPO_PATH, "output.txt")
 TAGS_FILE = os.path.join(REPO_PATH, "tags.json")
 ADMIN_FILE = os.path.join(REPO_PATH, "admin.json")
@@ -25,6 +30,10 @@ VOTES_FILE = os.path.join(REPO_PATH, "votes.json")
 # ======================
 if not TOKEN:
     print("ERROR: 環境変数 DISCORD_TOKEN が設定されていません")
+    exit(1)
+
+if not ANTHROPIC_API_KEY:
+    print("ERROR: 環境変数 ANTHROPIC_API_KEY が設定されていません")
     exit(1)
 
 TOKEN = TOKEN.strip()
@@ -64,12 +73,9 @@ def classify(text):
     if not text:
         return "other"
     ch = text[0]
-    if ALPHA_RE.match(ch):
-        return "alpha"
-    if HIRAGANA_RE.match(ch) or KANJI_RE.match(ch):
-        return "hiragana"
-    if KATAKANA_RE.match(ch):
-        return "katakana"
+    if ALPHA_RE.match(ch): return "alpha"
+    if HIRAGANA_RE.match(ch) or KANJI_RE.match(ch): return "hiragana"
+    if KATAKANA_RE.match(ch): return "katakana"
     return "other"
 
 # ======================
@@ -99,10 +105,11 @@ def save_json_file(filepath, data):
         return False
 
 # ======================
-# TXT 出力(ユーザー名付き)
+# TXT 出力
 # ======================
 def write_txt_from_map(normalized_map):
     groups = {"alpha": [], "hiragana": [], "katakana": [], "other": []}
+
     for v in normalized_map.values():
         cat = classify(v["raw"])
         groups[cat].append(v)
@@ -113,6 +120,7 @@ def write_txt_from_map(normalized_map):
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write("=== LINES (unique, latest kept, sorted) ===\n")
         f.write(f"Updated: {datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}\n\n")
+
         for cat, title in [
             ("alpha", "A–Z"),
             ("hiragana", "ひらがな / 漢字"),
@@ -123,7 +131,6 @@ def write_txt_from_map(normalized_map):
                 f.write(f"--- {title} ---\n")
                 for it in groups[cat]:
                     url = f"https://discord.com/channels/{GUILD_ID}/{CHANNEL_ID}/{it['id']}"
-                    # フォーマット: メッセージ | 日付 | URL | ユーザー名
                     f.write(f"{it['raw']:<40} | {it['date']} | {url} | {it['username']}\n")
                 f.write("\n")
 
@@ -131,20 +138,12 @@ def write_txt_from_map(normalized_map):
 # GitHub Push
 # ======================
 def push_to_github():
-    """
-    output.txt, tags.json, admin.json, votes.json を GitHub に push する。
-    """
     try:
-        # Git pull して最新状態にする
         subprocess.run(["git", "pull", "origin", "main"], cwd=REPO_PATH, check=False)
-        
-        # 変更をステージ
-        subprocess.run(["git", "add", "output.txt", "tags.json", "admin.json", "votes.json"], 
-                      cwd=REPO_PATH, check=False)
+        subprocess.run(["git", "add", "."], cwd=REPO_PATH, check=False)
 
-        # commit 
         result = subprocess.run(
-            ["git", "commit", "-m", f"Update files {datetime.datetime.now()}"],
+            ["git", "commit", "-m", f"Auto update {datetime.datetime.now()}"],
             cwd=REPO_PATH,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -152,32 +151,18 @@ def push_to_github():
             check=False
         )
 
-        # 変更がない場合はスキップ
-        if "nothing to commit" in result.stdout or "nothing to commit" in result.stderr:
-            print("ℹ️ No changes to commit")
+        if "nothing to commit" in result.stdout:
+            print("ℹ No updates to commit")
             return
 
-        # push
-        push_result = subprocess.run(
-            ["git", "push", "origin", "main"],
-            cwd=REPO_PATH,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=False
-        )
-
-        if push_result.returncode == 0:
-            print("✅ GitHub updated")
-        else:
-            print("⚠ GitHub push failed (ignored):")
-            print(push_result.stderr.strip())
+        subprocess.run(["git", "push", "origin", "main"], cwd=REPO_PATH, check=False)
+        print("✅ GitHub updated")
 
     except Exception as e:
-        print(f"⚠ GitHub push failed (ignored): {e}")
+        print(f"⚠ GitHub push failed: {e}")
 
 # ======================
-# Discord → TXT更新処理
+# メッセージ取得 → TXT更新
 # ======================
 @tasks.loop(seconds=60)
 async def fetch_and_save():
@@ -189,16 +174,13 @@ async def fetch_and_save():
     normalized_map = {}
 
     try:
-        print(f"Fetching messages from channel {CHANNEL_ID}...")
-        message_count = 0
-        
+        print(f"Fetching messages...")
         async for msg in channel.history(limit=None, oldest_first=True):
-            message_count += 1
+
             text = msg.content.strip()
             if not text:
                 continue
 
-            # ユーザー名取得
             username = msg.author.display_name if msg.author else "Unknown"
 
             norm = normalize(text)
@@ -209,93 +191,104 @@ async def fetch_and_save():
                 "username": username
             }
 
-            if norm in normalized_map:
-                if msg.id > normalized_map[norm]["id"]:
-                    normalized_map[norm] = entry
-            else:
+            if norm not in normalized_map or msg.id > normalized_map[norm]["id"]:
                 normalized_map[norm] = entry
-
-        print(f"Fetched {message_count} messages, {len(normalized_map)} unique entries")
 
         if normalized_map:
             write_txt_from_map(normalized_map)
-            
-            # 各JSONファイルが存在しない場合は空ファイルを作成
-            if not os.path.exists(TAGS_FILE):
-                save_json_file(TAGS_FILE, {})
-            if not os.path.exists(ADMIN_FILE):
-                save_json_file(ADMIN_FILE, {"hidden": [], "deleted": []})
+
+            # ❗ votes.json を破壊しない（投票バグ修正）
             if not os.path.exists(VOTES_FILE):
                 save_json_file(VOTES_FILE, {"current": {}, "archive": []})
-            
-            # Webからの変更をマージ（今回は既存データを保持）
-            existing_tags = load_json_file(TAGS_FILE, {})
-            existing_admin = load_json_file(ADMIN_FILE, {"hidden": [], "deleted": []})
-            existing_votes = load_json_file(VOTES_FILE, {"current": {}, "archive": []})
-            
-            # 既存データを再保存（Webからの変更は手動でJSONを編集する必要があります）
-            save_json_file(TAGS_FILE, existing_tags)
-            save_json_file(ADMIN_FILE, existing_admin)
-            save_json_file(VOTES_FILE, existing_votes)
-            
+
+            print("Saving JSON files...")
+            save_json_file(TAGS_FILE, load_json_file(TAGS_FILE, {}))
+            save_json_file(ADMIN_FILE, load_json_file(ADMIN_FILE, {"hidden": [], "deleted": []}))
+            # ❗ votes.json は上書きしない（Web → GitHub の内容をそのまま保持）
+            print("Votes.json preserved (no overwrite)")
+
             push_to_github()
-            print(f"✅ Successfully wrote {len(normalized_map)} unique entries")
-        else:
-            print("⚠️ No messages found or normalized_map empty")
+            print("✅ Update finished")
 
-    except discord.errors.Forbidden as e:
-        print(f"❌ Permission Error: Bot doesn't have access to channel. Error: {e}")
-    except discord.errors.HTTPException as e:
-        print(f"❌ Discord API Error: {e}, retrying in 5s...")
-        await asyncio.sleep(5)
     except Exception as e:
-        print(f"❌ Error in fetch_and_save: {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Error in fetch loop: {e}")
 
-# タスク開始前に準備完了を待つ
 @fetch_and_save.before_loop
-async def before_fetch_and_save():
-    print("Waiting for bot to be ready...")
+async def before_loop():
+    print("Waiting for bot ready...")
     await bot.wait_until_ready()
-    print("Bot is ready, starting fetch_and_save task")
 
 # ======================
-# Bot準備完了
+# AI 生成 API (AIOHTTP)
 # ======================
-@bot.event
-async def on_ready():
-    print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
-    print(f"Connected to {len(bot.guilds)} guild(s)")
-    
-    # チャンネルの存在確認
-    channel = bot.get_channel(CHANNEL_ID)
-    if channel:
-        print(f"✅ Target channel found: {channel.name}")
-    else:
-        print(f"❌ ERROR: Channel {CHANNEL_ID} not found!")
-    
-    # タスクがまだ開始されていない場合のみ開始
-    if not fetch_and_save.is_running():
-        fetch_and_save.start()
+async def handle_generate(request):
+    try:
+        count = int(request.query.get("count", "5"))
+
+        # output.txt 読み込み
+        if not os.path.exists(OUTPUT_FILE):
+            return web.json_response({"messages": []})
+
+        with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
+            lines = [
+                line.split("|")[0].strip()
+                for line in f.readlines()
+                if "|" in line and not line.startswith("===")
+            ]
+
+        all_messages = "\n".join(lines)
+
+        payload = {
+            "model": "claude-sonnet-4-20250514",
+            "max_tokens": 1000,
+            "messages": [{
+                "role": "user",
+                "content": f"""
+以下の文章リストを学習して、同じ雰囲気で{count}個の新しい迷言を作ってください。
+JSON形式: {{"messages": [".."]}}
+
+{all_messages}
+"""
+            }]
+        }
+
+        r = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            json=payload,
+            headers={
+                "Content-Type": "application/json",
+                "X-API-Key": ANTHROPIC_API_KEY
+            }
+        )
+
+        data = r.json()
+
+        # Claudeの返す structure に対応
+        text = data["content"][0]["text"]
+        text = text.replace("```json", "").replace("```", "").strip()
+        result = json.loads(text)
+
+        return web.json_response(result)
+
+    except Exception as e:
+        return web.json_response({"error": str(e)})
 
 # ======================
-# エラーハンドリング
+# Bot起動 + APIサーバ起動
 # ======================
-@bot.event
-async def on_error(event, *args, **kwargs):
-    print(f"❌ Error in {event}:")
-    import traceback
-    traceback.print_exc()
+async def start_web_app():
+    app = web.Application()
+    app.router.add_get("/generate", handle_generate)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    await site.start()
+    print("🌐 API server started at http://0.0.0.0:8080")
 
-# ======================
-# Bot Run
-# ======================
-try:
-    bot.run(TOKEN)
-except discord.errors.LoginFailure:
-    print("❌ ERROR: Invalid token. Please check DISCORD_TOKEN environment variable")
-except Exception as e:
-    print(f"❌ ERROR: Failed to start bot: {e}")
-    import traceback
-    traceback.print_exc()
+async def main():
+    asyncio.create_task(start_web_app())
+    fetch_and_save.start()
+    await bot.start(TOKEN)
+
+if __name__ == "__main__":
+    asyncio.run(main())

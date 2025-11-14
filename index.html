@@ -1740,51 +1740,37 @@ async function generateAIMessages() {
     const count = parseInt(document.getElementById('aiCount').value) || 5;
     const resultsDiv = document.getElementById('aiResults');
     resultsDiv.innerHTML = '<div class="loading">🤖 AI が創作中...</div>';
-    
+
     try {
-        const allMessages = originalLines.map(l => l.originalText).join('\n');
-        
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
-                max_tokens: 1000,
-                messages: [{
-                    role: 'user',
-                    content: `以下のメッセージリストを学習して、同じような雰囲気・トーンで新しいメッセージを${count}個創作してください。
+        // 外部IP + パスワード付
+        const apiBase = "http://26.136.113.125:8080";
+        const key = "gozonjiwearetamaonnsenn";  // BOT_API_KEY と同じ
 
-メッセージリスト:
-${allMessages}
+        const response = await fetch(`${apiBase}/generate?key=${key}&count=${count}`);
 
-要件:
-- 各メッセージは短く、1-2文程度
-- 元のメッセージの雰囲気を保ちつつ、新しい内容にする
-- JSON形式で返してください: {"messages": ["メッセージ1", "メッセージ2", ...]}
-- JSON以外の文章は含めないでください`
-                }]
-            })
-        });
-        
-        const data = await response.json();
-        const text = data.content[0].text;
-        const cleanText = text.replace(/```json|```/g, '').trim();
-        const result = JSON.parse(cleanText);
-        
+        if (!response.ok) {
+            throw new Error(`サーバーエラー: ${response.status}`);
+        }
+
+        const result = await response.json();
+
         resultsDiv.innerHTML = '<div class="ai-results"><h3>🎨 生成されたメッセージ</h3></div>';
         const aiResultsContainer = resultsDiv.querySelector('.ai-results');
-        
+
+        if (!result.messages || result.messages.length === 0) {
+            aiResultsContainer.innerHTML += `<div class="empty-state">メッセージが生成されませんでした。</div>`;
+            return;
+        }
+
         result.messages.forEach((msg, idx) => {
             const item = document.createElement('div');
             item.className = 'ai-message-item';
             item.innerHTML = `<strong>${idx + 1}.</strong> ${msg}`;
             aiResultsContainer.appendChild(item);
         });
-        
-    } catch(e) {
-        resultsDiv.innerHTML = '<div class="empty-state">❌ 生成に失敗しました<br><small>' + e.message + '</small></div>';
+
+    } catch (e) {
+        resultsDiv.innerHTML = `<div class="empty-state">❌ 生成に失敗しました<br><small>${e.message}</small></div>`;
     }
 }
 
