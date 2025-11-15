@@ -722,15 +722,12 @@ button.danger {
 }
 
 @media (max-width: 768px) {
-    h1 { font-size: 2em; }
-    .container { padding: 15px; }
-    .controls-wrapper { padding: 20px; }
-    .top-controls { flex-direction: column; }
-    .search-box { width: 100%; }
-    .side-menu { width: 100%; left: -100%; }
+    .side-menu { width: 100%; right: -100%; left: auto; }
+}
+
     .toast { min-width: 250px; }
     .fab { right: 30px; }
-}
+
 </style>
 </head>
 <body>
@@ -746,6 +743,7 @@ button.danger {
     <div class="menu-item active" onclick="switchPage('messages')">📝 メッセージ一覧</div>
     <div class="menu-item" onclick="switchPage('userRanking')">👤 ユーザーランキング</div>
     <div class="menu-item" onclick="switchPage('voteRanking')">🗳️ 投票ランキング</div>
+    <div class="menu-item" onclick="switchPage('aiGenerator')">🤖 AI生成</div> <!-- ← これ追加 -->
     <div class="menu-item" onclick="switchPage('settings')">⚙️ 設定</div>
 </div>
 
@@ -822,6 +820,20 @@ button.danger {
     </div>
 
     <!-- 設定ページ -->
+    <div id="aiGeneratorPage" class="page">
+    <div class="controls-wrapper">
+        <h2 style="margin-bottom:20px;">🤖 AI創作メッセージ生成</h2>
+
+        <div class="setting-group">
+            <label class="setting-label">生成数</label>
+            <input type="number" id="aiCount" class="ai-count-input" value="5" min="1" max="20">
+            <button onclick="generateAIMessages()">✨ 生成する</button>
+        </div>
+
+        <div id="aiResults"></div>
+    </div>
+</div>
+    
     <div id="settingsPageMain" class="page">
         <div class="controls-wrapper">
             <h2 style="margin-bottom: 20px;">⚙️ 設定</h2>
@@ -961,25 +973,34 @@ function toggleMenu() {
 }
 
 function switchPage(page) {
+
+    // すべてのページを非表示
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-    
+
+    // メニューとページの対応
     const pageMap = {
-        'messages': [0, 'messagesPage'],
-        'userRanking': [1, 'userRankingPage'],
-        'voteRanking': [2, 'voteRankingPage'],
-        'settings': [3, 'settingsPageMain']
+        'messages':      [0, 'messagesPage'],
+        'userRanking':   [1, 'userRankingPage'],
+        'voteRanking':   [2, 'voteRankingPage'],
+        'aiGenerator':   [3, 'aiGeneratorPage'],     // ← 追加！
+        'settings':      [4, 'settingsPageMain']     // ← 位置修正！
     };
-    
-    if(pageMap[page]) {
-        document.getElementById(pageMap[page][1]).classList.add('active');
-        document.querySelectorAll('.menu-item')[pageMap[page][0]].classList.add('active');
-        
-        if(page === 'userRanking') updateUserRanking();
-        if(page === 'voteRanking') showVoteRanking('current');
+
+    if (pageMap[page]) {
+        const [menuIndex, pageId] = pageMap[page];
+
+        document.getElementById(pageId).classList.add('active');
+        document.querySelectorAll('.menu-item')[menuIndex].classList.add('active');
+
+        if (page === 'userRanking') updateUserRanking();
+        if (page === 'voteRanking') showVoteRanking('current');
     }
-    
-    toggleMenu();
+
+    // 開いている状態の時だけ閉じる
+    if (document.getElementById('sideMenu').classList.contains('open')) {
+        toggleMenu();
+    }
 }
 
 async function syncAdminData() {
