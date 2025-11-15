@@ -221,13 +221,18 @@ async def before_loop():
 # ======================
 # AI 生成 API (AIOHTTP)
 # ======================
+# ======================
+# AI 生成 API (AIOHTTP + CORS対応)
+# ======================
 async def handle_generate(request):
     try:
         count = int(request.query.get("count", "5"))
 
         # output.txt 読み込み
         if not os.path.exists(OUTPUT_FILE):
-            return web.json_response({"messages": []})
+            response = web.json_response({"messages": []})
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
 
         with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
             lines = [
@@ -257,7 +262,8 @@ JSON形式: {{"messages": [".."]}}
             json=payload,
             headers={
                 "Content-Type": "application/json",
-                "X-API-Key": ANTHROPIC_API_KEY
+                "X-API-Key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01"
             }
         )
 
@@ -268,10 +274,24 @@ JSON形式: {{"messages": [".."]}}
         text = text.replace("```json", "").replace("```", "").strip()
         result = json.loads(text)
 
-        return web.json_response(result)
+        response = web.json_response(result)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response
 
     except Exception as e:
-        return web.json_response({"error": str(e)})
+        response = web.json_response({"error": str(e)})
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+# OPTIONSリクエスト対応(プリフライト)
+async def handle_options(request):
+    response = web.Response()
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
 
 # ======================
 # Bot起動 + APIサーバ起動
